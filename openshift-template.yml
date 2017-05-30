@@ -54,14 +54,6 @@ parameters:
   displayName: Maven build directory
   name: ARTIFACT_DIR
 
-- description: Namespace in which the Fuse ImageStreams are installed. These ImageStreams
-    are normally installed in the openshift namespace. You should only need to modify
-    this if you've installed the ImageStreams in a different namespace/project.
-  displayName: Image Stream Namespace
-  name: IMAGE_STREAM_NAMESPACE
-  required: true
-  value: openshift
-
 - description: The secret needed to trigger a build.
   displayName: Git Build Secret
   from: '[a-zA-Z0-9]{40}'
@@ -80,6 +72,44 @@ parameters:
   required: true
   value: "1.0"
 
+- description: whether to connect to TEST or PRODUCTION instance of isds
+  displayName: ISDS Environment
+  name: ISDS_ENV
+  required: true
+  value: "PRODUCTION"
+
+- description: user login for isds
+  displayName: login
+  name: ISDS_LOGIN
+  required: true
+
+- description: user password for isds
+  displayName: password
+  name: ISDS_PASSWORD
+  required: true
+
+- description: how often should it check for new messages
+  displayName: delay
+  name: ISDS_DELAY
+  required: true
+  value: "10s"
+
+- description: forward isds messages to this e-mail address
+  displayName: recipient
+  name: GMAIL_RECIPIENT
+  required: true
+
+- description: user e-mail to use as login
+  displayName: gmail login
+  name: GMAIL_LOGIN
+  required: true
+  value: "...@gmail.com"
+
+
+- description: user password
+  displayName: password
+  name: GMAIL_PASSWORD
+  required: true
 
 objects:
 - apiVersion: v1
@@ -119,6 +149,7 @@ objects:
         uri: ${GIT_REPO}
       type: Git
     strategy:
+      type: Source
       sourceStrategy:
         env:
         - name: BUILD_LOGLEVEL
@@ -131,11 +162,9 @@ objects:
           value: ${MAVEN_ARGS_APPEND}
         forcePull: true
         from:
-          kind: ImageStreamTag
-          name: fis-java-openshift:${BUILDER_VERSION}
-          namespace: ${IMAGE_STREAM_NAMESPACE}
+          kind: DockerImage
+          name: fabric8/s2i-java:${BUILDER_VERSION}
         incremental: true
-      type: Source
     triggers:
     - github:
         secret: ${BUILD_SECRET}
@@ -183,10 +212,32 @@ objects:
       spec:
         containers:
         - env:
+          - name: ISDS_ENV
+            value: ${ISDS_ENV}
+
+          - name: ISDS_LOGIN
+            value: ${ISDS_LOGIN} 
+
+          - name: ISDS_PASSWORD
+            value: ${ISDS_PASSWORD} 
+
+          - name: GMAIL_LOGIN
+            value: ${GMAIL_LOGIN} 
+
+          - name: GMAIL_RECIPIENT
+            value: ${GMAIL_RECIPIENT} 
+
+          - name: GMAIL_PASSWORD
+            value: ${GMAIL_PASSWORD}
+
+          - name: ISDS_DELAY
+            value: ${ISDS_DELAY}
+
           - name: KUBERNETES_NAMESPACE
             valueFrom:
               fieldRef:
                 fieldPath: metadata.namespace
+
           image: library/${APP_NAME}:latest
           livenessProbe:
             httpGet:
